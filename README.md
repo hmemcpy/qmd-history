@@ -88,6 +88,10 @@ The skill activates when you ask things like:
 - "Remind me about the Y project"
 - "What was our approach to Z?"
 
+![Skill Activation Example](image.png)
+
+*Example: Claude automatically activates the qmd-claude-history skill and searches conversation history when asked about past work*
+
 ### Manual Search
 
 For precise control, use direct QMD commands:
