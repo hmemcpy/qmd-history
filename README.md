@@ -1,6 +1,8 @@
-# QMD Claude History
+# QMD History
 
 Automatic indexing and search for AI assistant conversation history using [QMD](https://github.com/tobi/qmd).
+
+Supports **Claude Code**, **Amp**, and **Opencode**.
 
 ![Skill Activation Example](image.png)
 

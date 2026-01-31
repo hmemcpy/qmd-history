@@ -1,5 +1,5 @@
 {
-  "name": "qmd-claude-history",
+  "name": "qmd-history",
   "version": "2.0.0",
   "description": "Automatic indexing and search for AI assistant conversation history using QMD",
   "main": "dist/install.js",
