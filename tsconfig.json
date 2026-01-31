@@ -13,6 +13,6 @@
     "declaration": true,
     "declarationMap": true
   },
-  "include": ["install.ts"],
+  "include": ["*.ts"],
   "exclude": ["node_modules", "dist"]
 }

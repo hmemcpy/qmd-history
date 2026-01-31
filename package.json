@@ -11,7 +11,8 @@
     "build": "tsc",
     "start": "tsx install.ts",
     "dev": "tsx watch install.ts",
-    "install": "npm run build && node dist/install.js"
+    "install": "npm run build && node dist/install.js",
+    "uninstall": "tsx uninstall.ts"
   },
   "keywords": [
     "qmd",
