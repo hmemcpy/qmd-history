@@ -8,162 +8,192 @@ REPO_URL="https://github.com/hmemcpy/qmd-claude-history"
 INSTALL_DIR="${HOME}/.local/share/qmd-claude-history"
 SCRIPT_DIR="${HOME}/.local/bin"
 
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║     QMD Claude History Integration - Installer             ║"
-echo "╚════════════════════════════════════════════════════════════╝"
-echo ""
-
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Helper functions
 info() { echo -e "${GREEN}✓${NC} $1"; }
 warn() { echo -e "${YELLOW}⚠${NC} $1"; }
 error() { echo -e "${RED}✗${NC} $1"; }
+section() { echo -e "${CYAN}${BOLD}$1${NC}"; }
 
-# Check prerequisites
-echo "Checking prerequisites..."
-
-if ! command -v bun &> /dev/null; then
-    error "Bun not found. Please install Bun first:"
-    echo "   curl -fsSL https://bun.sh/install | bash"
+# Function to print centered text in a box
+print_box() {
+    local text="$1"
+    local width=60
+    local padding=$(( (width - ${#text}) / 2 ))
+    
     echo ""
-    echo "Then add ~/.bun/bin to your PATH and try again."
-    exit 1
-fi
-info "Bun found"
-
-if ! command -v qmd &> /dev/null; then
-    error "QMD not found. Please install QMD:"
-    echo "   bun install -g https://github.com/tobi/qmd"
+    echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
+    printf "${BLUE}║${NC}%${padding}s${BOLD}%s${NC}%$(($width - $padding - ${#text}))s${BLUE}║${NC}\n" "" "$text" ""
+    echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo "On macOS, also install SQLite:"
-    echo "   brew install sqlite"
-    exit 1
-fi
-info "QMD found"
+}
 
-if ! command -v jq &> /dev/null; then
-    error "jq not found. Please install jq:"
-    echo "   brew install jq"
-    exit 1
-fi
-info "jq found"
+# Function to print section header
+section_header() {
+    echo ""
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}${BOLD}  $1${NC}"
+    echo -e "${CYAN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
 
-echo ""
-info "Note: QMD will download GGUF models (~2GB total) on first use"
-echo "  - Embedding model: ~300MB"
-echo "  - Reranker model: ~640MB"
-echo "  - Query expansion: ~1.1GB"
-echo ""
+# Function to wait for user
+wait_for_user() {
+    echo ""
+    echo -e "${YELLOW}Press Enter to continue...${NC}"
+    read
+}
 
-# Create directories
-mkdir -p "$INSTALL_DIR"
-mkdir -p "$SCRIPT_DIR"
-mkdir -p "${HOME}/.claude/converted-history"
-info "Created directories"
+# Page 1: Welcome
+page_welcome() {
+    clear
+    print_box "QMD Claude History Integration"
+    
+    section "What This Installer Does"
+    echo "  • Converts Claude's JSONL history to searchable Markdown"
+    echo "  • Creates per-project QMD collections"
+    echo "  • Installs a skill for automatic history search"
+    echo "  • Sets up automatic updates every 30 minutes"
+    echo "  • Optionally adds CLAUDE.md directive for auto-activation"
+    echo ""
+    
+    section "Requirements"
+    echo "  • Bun (JavaScript runtime)"
+    echo "  • QMD (search engine - github.com/tobi/qmd)"
+    echo "  • jq (JSON processor)"
+    echo ""
+    
+    echo -n "Continue with installation? (Y/n): "
+    read -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        echo "Installation cancelled."
+        exit 0
+    fi
+}
 
-# Install converter script
-cat > "$SCRIPT_DIR/convert-claude-history.sh" << 'SCRIPT_EOF'
+# Page 2: Prerequisites Check
+page_prerequisites() {
+    clear
+    section_header "Step 1: Checking Prerequisites"
+    
+    local all_good=true
+    
+    section "Checking installed tools..."
+    echo ""
+    
+    if command -v bun &> /dev/null; then
+        info "Bun found: $(which bun)"
+    else
+        error "Bun not found"
+        echo ""
+        echo "Install Bun:"
+        echo "  curl -fsSL https://bun.sh/install | bash"
+        echo ""
+        echo "Then add ~/.bun/bin to your PATH and try again."
+        all_good=false
+    fi
+    
+    if command -v qmd &> /dev/null; then
+        info "QMD found: $(which qmd)"
+    else
+        error "QMD not found"
+        echo ""
+        echo "Install QMD:"
+        echo "  bun install -g https://github.com/tobi/qmd"
+        echo ""
+        echo "On macOS, also install SQLite:"
+        echo "  brew install sqlite"
+        all_good=false
+    fi
+    
+    if command -v jq &> /dev/null; then
+        info "jq found: $(which jq)"
+    else
+        error "jq not found"
+        echo ""
+        echo "Install jq:"
+        echo "  brew install jq"
+        all_good=false
+    fi
+    
+    if [ "$all_good" = false ]; then
+        echo ""
+        echo "Please install the missing prerequisites and run the installer again."
+        exit 1
+    fi
+    
+    echo ""
+    info "All prerequisites satisfied!"
+    echo ""
+    section "Note"
+    echo "QMD will download GGUF models (~2GB total) on first use:"
+    echo "  • Embedding model: ~300MB"
+    echo "  • Reranker model: ~640MB"
+    echo "  • Query expansion: ~1.1GB"
+    
+    wait_for_user
+}
+
+# Page 3: Install Components
+page_install_components() {
+    clear
+    section_header "Step 2: Installing Components"
+    
+    section "Creating directories..."
+    mkdir -p "$INSTALL_DIR"
+    mkdir -p "$SCRIPT_DIR"
+    mkdir -p "${HOME}/.claude/converted-history"
+    info "Created directories"
+    
+    echo ""
+    section "Installing converter script..."
+    cat > "$SCRIPT_DIR/convert-claude-history.sh" << 'SCRIPT_EOF'
 #!/bin/bash
 # convert-claude-history.sh - Convert Claude JSONL conversation history to Markdown
-
 set -e
-
 CONVERT_DIR="${HOME}/.claude/converted-history"
 DRY_RUN=false
-
-# Parse arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --dry-run)
-      DRY_RUN=true
-      shift
-      ;;
-    *)
-      echo "Usage: $0 [--dry-run]"
-      exit 1
-      ;;
+    --dry-run) DRY_RUN=true; shift ;;
+    *) echo "Usage: $0 [--dry-run]"; exit 1 ;;
   esac
 done
-
-# Create conversion directory
 mkdir -p "$CONVERT_DIR"
-
-# Find all project directories
 project_count=0
 converted_count=0
-
 for project_dir in ~/.claude/projects/*; do
-  if [[ ! -d "$project_dir" ]]; then
-    continue
-  fi
-
-  # Count JSONL files
+  [[ ! -d "$project_dir" ]] && continue
   jsonl_count=$(find "$project_dir" -maxdepth 1 -name "*.jsonl" -type f 2>/dev/null | wc -l)
-  if [[ $jsonl_count -eq 0 ]]; then
-    continue
-  fi
-
+  [[ $jsonl_count -eq 0 ]] && continue
   ((project_count++))
-
-  # Extract cwd from first JSONL to get actual path
   first_jsonl=$(find "$project_dir" -maxdepth 1 -name "*.jsonl" -type f | head -1)
-  if [[ -z "$first_jsonl" ]]; then
-    continue
-  fi
-
-  # Extract the cwd (current working directory) from the first line that has it
+  [[ -z "$first_jsonl" ]] && continue
   cwd=$(head -5 "$first_jsonl" | jq -r 'select(.cwd != null) | .cwd' 2>/dev/null | head -1)
-
-  if [[ -z "$cwd" ]]; then
-    echo "Warning: Could not extract cwd from $first_jsonl, skipping"
-    continue
-  fi
-
-  # Skip agent worktrees (Ralph Wiggum sub-agents)
-  if [[ "$cwd" == *".ralphy-worktrees"* ]] || [[ "$cwd" == *"/agent-"* ]]; then
-    echo "  Skipping agent worktree: $cwd"
-    continue
-  fi
-
-  # Get project name from cwd (e.g., /Users/hmemcpy/git/clair -> clair)
+  [[ -z "$cwd" ]] && { echo "Warning: Could not extract cwd from $first_jsonl, skipping"; continue; }
+  [[ "$cwd" == *".ralphy-worktrees"* ]] || [[ "$cwd" == *"/agent-"* ]] && { echo "  Skipping agent worktree: $cwd"; continue; }
   project_name=$(basename "$cwd")
-
-  # Create project directory in converted history
   project_convert_dir="$CONVERT_DIR/$project_name"
   mkdir -p "$project_convert_dir"
-
   echo "Processing project: $project_name ($jsonl_count sessions)"
-
-  # Convert each JSONL to Markdown
   for jsonl in "$project_dir"/*.jsonl; do
-    if [[ ! -f "$jsonl" ]]; then
-      continue
-    fi
-
-    # Extract session info
+    [[ ! -f "$jsonl" ]] && continue
     first_line=$(head -1 "$jsonl")
     session_id=$(echo "$first_line" | jq -r '.sessionId // empty')
     session_slug=$(echo "$first_line" | jq -r '.slug // "unknown"')
     session_date=$(echo "$first_line" | jq -r '.timestamp[0:10] // empty')
-
-    if [[ -z "$session_date" ]]; then
-      session_date=$(date +%Y-%m-%d)
-    fi
-
-    # Create markdown filename
+    [[ -z "$session_date" ]] && session_date=$(date +%Y-%m-%d)
     md_file="$project_convert_dir/${session_date}-${session_slug}.md"
-
-    if [[ "$DRY_RUN" == true ]]; then
-      echo "  Would convert: $(basename "$jsonl") -> $(basename "$md_file")"
-      continue
-    fi
-
-    # Convert JSONL to Markdown
+    [[ "$DRY_RUN" == true ]] && { echo "  Would convert: $(basename "$jsonl") -> $(basename "$md_file")"; continue; }
     {
       echo "# Claude Session: $session_slug"
       echo ""
@@ -173,41 +203,26 @@ for project_dir in ~/.claude/projects/*; do
       echo ""
       echo "---"
       echo ""
-
-      # Extract conversation
-      jq -r '
-        if .type == "user" then
-          "## User\n\n" + (.message.content // "") + "\n"
-        elif .type == "assistant" then
-          "## Assistant\n\n" + ((.message.content // []) | if type == "array" then map(.text // empty) | join("\n") else . end) + "\n"
-        else
-          empty
-        end
-      ' "$jsonl" 2>/dev/null || echo "Error parsing $jsonl"
-
+      jq -r 'if .type == "user" then "## User\n\n" + (.message.content // "") + "\n" elif .type == "assistant" then "## Assistant\n\n" + ((.message.content // []) | if type == "array" then map(.text // empty) | join("\n") else . end) + "\n" else empty end' "$jsonl" 2>/dev/null || echo "Error parsing $jsonl"
     } > "$md_file"
-
     ((converted_count++))
   done
-
   echo "  Converted $jsonl_count sessions to $project_convert_dir"
 done
-
 echo ""
 echo "Summary:"
 echo "  Projects processed: $project_count"
 echo "  Sessions converted: $converted_count"
 echo "  Output directory: $CONVERT_DIR"
 SCRIPT_EOF
-
-chmod +x "$SCRIPT_DIR/convert-claude-history.sh"
-info "Installed converter script"
-
-# Install Skill
-SKILL_DIR="${HOME}/.claude/skills/qmd-claude-history"
-mkdir -p "$SKILL_DIR"
-
-cat > "$SKILL_DIR/SKILL.md" << 'SKILL_EOF'
+    chmod +x "$SCRIPT_DIR/convert-claude-history.sh"
+    info "Installed converter script"
+    
+    echo ""
+    section "Installing skill..."
+    SKILL_DIR="${HOME}/.claude/skills/qmd-claude-history"
+    mkdir -p "$SKILL_DIR"
+    cat > "$SKILL_DIR/SKILL.md" << 'SKILL_EOF'
 ---
 name: qmd-claude-history
 description: Automatic indexing and search for Claude Code conversation history using QMD. Enables Claude to search its own past work across projects.
@@ -342,7 +357,7 @@ convert-claude-history.sh
 # Index new markdown files only
 qmd update
 
-# Generate embeddings for new content only
+# Generate embeddings for new content only  
 qmd embed
 ```
 
@@ -429,37 +444,31 @@ rm -rf ~/.claude/converted-history
 - Project names are extracted from the `cwd` field in JSONL files
 - New projects are automatically indexed when the LaunchAgent runs
 SKILL_EOF
-
-info "Installed skill: qmd-claude-history"
-
-# Install LaunchAgent
-cat > "${HOME}/Library/LaunchAgents/com.user.qmd-claude-history.plist" << 'PLIST_EOF'
+    info "Installed skill"
+    
+    echo ""
+    section "Installing LaunchAgent..."
+    cat > "${HOME}/Library/LaunchAgents/com.user.qmd-claude-history.plist" << 'PLIST_EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.user.qmd-claude-history</string>
-
     <key>ProgramArguments</key>
     <array>
         <string>/bin/sh</string>
         <string>-c</string>
         <string>export PATH="$HOME/.bun/bin:$HOME/.local/bin:$PATH" &amp;&amp; convert-claude-history.sh &amp;&amp; qmd update &amp;&amp; qmd embed</string>
     </array>
-
     <key>StartInterval</key>
     <integer>1800</integer>
-
     <key>RunAtLoad</key>
     <true/>
-
     <key>StandardOutPath</key>
     <string>/dev/null</string>
-
     <key>StandardErrorPath</key>
     <string>/dev/null</string>
-
     <key>EnvironmentVariables</key>
     <dict>
         <key>XDG_CACHE_HOME</key>
@@ -468,114 +477,113 @@ cat > "${HOME}/Library/LaunchAgents/com.user.qmd-claude-history.plist" << 'PLIST
 </dict>
 </plist>
 PLIST_EOF
+    launchctl load "${HOME}/Library/LaunchAgents/com.user.qmd-claude-history.plist" 2>/dev/null || true
+    info "Installed and loaded LaunchAgent"
+    
+    wait_for_user
+}
 
-# Load LaunchAgent
-launchctl load "${HOME}/Library/LaunchAgents/com.user.qmd-claude-history.plist" 2>/dev/null || true
-info "Installed and loaded LaunchAgent (runs every 30 min)"
-
-# Update CLAUDE.md with skill activation directive
-echo ""
-echo "════════════════════════════════════════════════════════════"
-echo "  Step 4: CLAUDE.md Configuration (Optional)"
-echo "════════════════════════════════════════════════════════════"
-echo ""
-echo "To enable automatic skill activation, the installer can add a"
-echo "directive to your global CLAUDE.md file that tells Claude to"
-echo "automatically use the qmd-claude-history skill when you ask"
-echo "about past work."
-echo ""
-echo "This will be added to: ${HOME}/.claude/CLAUDE.md"
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│  PREVIEW OF TEXT TO BE ADDED:                               │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo ""
-cat << 'PREVIEW'
-## Memory & Context Retrieval
-
-When the user asks about past work, previous conversations, or anything that might be in conversation history, **activate the qmd-claude-history skill** and search QMD first before answering.
-
-### When to Search History
-
-Activate qmd-claude-history skill when user asks:
-- "What did we work on last week?"
-- "How did I implement X?"
-- "Remind me about the Y project"
-- "What was our approach to Z?"
-- "Did we discuss...?"
-- Any question referencing past work or conversations
-
-### Quick Reference
-
-```bash
-# Search current project's conversation history
-qmd search "your query" --collection claude-<project>-conversations
-
-# Example for toolkata project
-qmd search "sandbox implementation" --collection claude-toolkata-conversations
-```
-
-**Note:** Full documentation is in the qmd-claude-history skill
-PREVIEW
-echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│  END OF PREVIEW                                             │"
-echo "└─────────────────────────────────────────────────────────────┘"
-echo ""
-echo "Options:"
-echo "  [Y] Yes - Add the directive to CLAUDE.md (recommended)"
-echo "  [N] No  - Skip this step (you'll need to manually activate the skill)"
-echo "  [V] View - See the full text that will be added"
-echo ""
-read -p "Add skill activation directive to CLAUDE.md? (Y/n/v): " -n 1 -r
-echo
-
-# Handle view option
-while [[ $REPLY =~ ^[Vv]$ ]]; do
+# Page 4: Convert History
+page_convert_history() {
+    clear
+    section_header "Step 3: Converting Existing History"
+    
+    section "Converting your existing Claude conversations to Markdown..."
     echo ""
-    echo "════════════════════════════════════════════════════════════"
-    echo "  FULL TEXT TO BE ADDED TO CLAUDE.md"
-    echo "════════════════════════════════════════════════════════════"
+    convert-claude-history.sh 2>&1 | tail -10
+    
     echo ""
-    cat << 'FULLTEXT'
+    info "History conversion complete!"
+    
+    wait_for_user
+}
 
-## Memory & Context Retrieval
-
-When the user asks about past work, previous conversations, or anything that might be in conversation history, **activate the qmd-claude-history skill** and search QMD first before answering.
-
-### When to Search History
-
-Activate qmd-claude-history skill when user asks:
-- "What did we work on last week?"
-- "How did I implement X?"
-- "Remind me about the Y project"
-- "What was our approach to Z?"
-- "Did we discuss...?"
-- Any question referencing past work or conversations
-
-### Quick Reference
-
-```bash
-# Search current project's conversation history
-qmd search "your query" --collection claude-<project>-conversations
-
-# Example for toolkata project
-qmd search "sandbox implementation" --collection claude-toolkata-conversations
-```
-
-**Note:** Full documentation is in the qmd-claude-history skill (`~/.claude/skills/qmd-claude-history/SKILL.md`)
-
-FULLTEXT
+# Page 5: Create Collections
+page_create_collections() {
+    clear
+    section_header "Step 4: Creating QMD Collections"
+    
+    section "Creating QMD collections for your projects..."
     echo ""
-    read -p "Add this to CLAUDE.md? (Y/n): " -n 1 -r
+    
+    local collection_count=0
+    for project_dir in "${HOME}/.claude/converted-history"/*; do
+        [[ ! -d "$project_dir" ]] && continue
+        
+        project_name=$(basename "$project_dir")
+        collection_name="claude-${project_name}-conversations"
+        
+        # Check if collection already exists
+        if qmd collection list 2>/dev/null | grep -q "^${collection_name}$"; then
+            warn "Collection $collection_name already exists, skipping"
+            continue
+        fi
+        
+        echo "Creating: $collection_name"
+        qmd collection add "$project_dir" --name "$collection_name" 2>/dev/null || warn "Failed to create collection"
+        qmd context add "qmd://${collection_name}/" "Claude conversation history for ${project_name} project" 2>/dev/null || true
+        ((collection_count++))
+    done
+    
+    echo ""
+    info "Created $collection_count collections"
+    
+    echo ""
+    section "Generating embeddings..."
+    qmd embed 2>&1 | tail -3
+    info "Embeddings generated"
+    
+    wait_for_user
+}
+
+# Page 6: CLAUDE.md Configuration
+page_claude_md() {
+    clear
+    section_header "Step 5: CLAUDE.md Configuration (Optional)"
+    
+    section "About This Step"
+    echo "To enable automatic skill activation, we can add a directive"
+    echo "to your global CLAUDE.md file."
+    echo ""
+    echo "This tells Claude to automatically use the qmd-claude-history"
+    echo "skill when you ask about past work."
+    echo ""
+    echo -e "Location: ${CYAN}${HOME}/.claude/CLAUDE.md${NC}"
+    echo ""
+    
+    section "Preview of what will be added:"
+    echo "────────────────────────────────────────────────────────────"
+    echo ""
+    echo "## Memory & Context Retrieval"
+    echo ""
+    echo "When the user asks about past work, previous conversations,"
+    echo "or anything that might be in conversation history, activate"
+    echo "the qmd-claude-history skill and search QMD first before"
+    echo "answering."
+    echo ""
+    echo "### When to Search History"
+    echo ""
+    echo 'Activate qmd-claude-history skill when user asks:'
+    echo '  - "What did we work on last week?"'
+    echo '  - "How did I implement X?"'
+    echo '  - "Remind me about the Y project"'
+    echo '  - Any question referencing past work or conversations'
+    echo ""
+    echo "────────────────────────────────────────────────────────────"
+    echo ""
+    
+    echo -n "Add this to CLAUDE.md? (Y/n): "
+    read -n 1 -r
     echo
-done
-
-if [[ $REPLY =~ ^[Nn]$ ]]; then
-    warn "Skipping CLAUDE.md update"
-    warn "Note: You'll need to manually activate the qmd-claude-history skill"
-    warn "       when asking about past work, or add these instructions yourself."
-else
+    
+    if [[ $REPLY =~ ^[Nn]$ ]]; then
+        warn "Skipped CLAUDE.md update"
+        echo ""
+        echo "You can manually activate the skill by telling Claude:"
+        echo '  "activate the qmd-claude-history skill"'
+        return
+    fi
+    
     CLAUDE_MD="${HOME}/.claude/CLAUDE.md"
     
     # Backup existing CLAUDE.md if it exists
@@ -619,60 +627,53 @@ qmd search "sandbox implementation" --collection claude-toolkata-conversations
 CLAUDE_EOF
         info "Updated CLAUDE.md with skill activation directive"
     fi
-fi
+    
+    wait_for_user
+}
 
-# Convert existing history
-echo ""
-echo "Converting existing Claude history..."
-convert-claude-history.sh 2>&1 | tail -5
+# Page 7: Completion
+page_completion() {
+    clear
+    print_box "Installation Complete!"
+    
+    section "What's Been Set Up"
+    echo "  ✓ Skill: ~/.claude/skills/qmd-claude-history/SKILL.md"
+    echo "  ✓ Converter: ~/.local/bin/convert-claude-history.sh"
+    echo "  ✓ LaunchAgent: Auto-updates every 30 minutes"
+    echo "  ✓ Collections: Created for existing projects"
+    echo ""
+    
+    section "Usage"
+    echo "Just ask Claude about past work:"
+    echo '  "What did we work on last week?"'
+    echo '  "How did I implement X?"'
+    echo '  "Remind me about the Y project"'
+    echo ""
+    echo "The skill will activate automatically!"
+    echo ""
+    
+    section "Manual Commands"
+    echo "  Search:  qmd search \"query\" --collection claude-<project>-conversations"
+    echo "  Update:  convert-claude-history.sh && qmd update && qmd embed"
+    echo ""
+    
+    echo -e "${YELLOW}Press Enter to exit...${NC}"
+    read
+}
 
-# Create QMD collections for major projects
-echo ""
-echo "Creating QMD collections for converted history..."
+# Main installation flow
+main() {
+    page_welcome
+    page_prerequisites
+    page_install_components
+    page_convert_history
+    page_create_collections
+    page_claude_md
+    page_completion
+    
+    clear
+    echo -e "${GREEN}${BOLD}Installation complete!${NC}"
+}
 
-for project_dir in "${HOME}/.claude/converted-history"/*; do
-    if [[ ! -d "$project_dir" ]]; then
-        continue
-    fi
-
-    project_name=$(basename "$project_dir")
-    collection_name="claude-${project_name}-conversations"
-
-    # Check if collection already exists
-    if qmd collection list 2>/dev/null | grep -q "^${collection_name}$"; then
-        warn "Collection $collection_name already exists, skipping"
-        continue
-    fi
-
-    echo "Creating collection: $collection_name"
-    qmd collection add "$project_dir" --name "$collection_name" 2>/dev/null || warn "Failed to create collection"
-    qmd context add "qmd://${collection_name}/" "Claude conversation history for ${project_name} project" 2>/dev/null || true
-done
-
-# Generate embeddings
-echo ""
-echo "Generating embeddings..."
-qmd embed 2>&1 | tail -3
-
-echo ""
-echo "╔════════════════════════════════════════════════════════════╗"
-echo "║                 Installation Complete!                     ║"
-echo "╚════════════════════════════════════════════════════════════╝"
-echo ""
-echo "What's set up:"
-echo "  ✓ Skill: ~/.claude/skills/qmd-claude-history/SKILL.md"
-echo "  ✓ Converter script: ~/.local/bin/convert-claude-history.sh"
-echo "  ✓ LaunchAgent: Auto-updates every 30 minutes"
-echo "  ✓ Collections: Created for existing projects"
-echo ""
-echo "The skill activates automatically when you ask about past work:"
-echo "  \"What did we work on last week?\""
-echo "  \"How did I implement X?\""
-echo "  \"Remind me about the Y project\""
-echo ""
-echo "Manual search:"
-echo "  /qmd \"your query\" --collection claude-<project>-conversations"
-echo ""
-echo "Manual update:"
-echo "  convert-claude-history.sh && qmd update && qmd embed"
-echo ""
+# Run main function
+main
