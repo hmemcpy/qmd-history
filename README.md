@@ -23,6 +23,17 @@ Converts Claude's JSONL conversation history into searchable Markdown collection
 curl -fsSL https://raw.githubusercontent.com/hmemcpy/qmd-claude-history/main/install.sh | bash
 ```
 
+The installer runs in **4 steps**:
+1. **Prerequisites check** - Verifies Bun, QMD, and jq are installed
+2. **Skill installation** - Installs the qmd-claude-history skill
+3. **LaunchAgent setup** - Configures automatic updates every 30 minutes
+4. **CLAUDE.md configuration** (optional) - Adds skill activation directive to your global CLAUDE.md
+
+**Note on Step 4:** The installer will show you a preview of the text to be added to `~/.claude/CLAUDE.md` and ask for confirmation. This step is **optional but recommended** - it enables automatic skill activation when you ask about past work. You can:
+- **Yes** - Add the directive (recommended)
+- **No** - Skip this step (you'll need to manually activate the skill)
+- **View** - See the full text before deciding
+
 ### Manual Install
 
 ```bash
@@ -107,6 +118,38 @@ convert-claude-history.sh && qmd update && qmd embed
 3. **LaunchAgent** runs the converter every 30 minutes automatically
 4. **QMD collections** are created per-project for fast searching
 5. **Auto-activation** - Claude loads the skill automatically when you ask about past work
+
+## CLAUDE.md Configuration
+
+The installer can optionally add a directive to your global `~/.claude/CLAUDE.md` file. This is **recommended** because:
+
+- **Enables automatic skill activation** when you ask about past work
+- **No manual intervention needed** - Claude knows to search history automatically
+- **Works immediately** - No need to remember to activate the skill
+
+### What Gets Added
+
+```markdown
+## Memory & Context Retrieval
+
+When the user asks about past work, previous conversations, or anything that might be in conversation history, **activate the qmd-claude-history skill** and search QMD first before answering.
+
+### When to Search History
+
+Activate qmd-claude-history skill when user asks:
+- "What did we work on last week?"
+- "How did I implement X?"
+- "Remind me about the Y project"
+- "What was our approach to Z?"
+- "Did we discuss...?"
+- Any question referencing past work or conversations
+```
+
+### If You Skipped This Step
+
+You can add it later by running the installer again, or manually add the section above to your `~/.claude/CLAUDE.md` file.
+
+**Without this directive:** You'll need to manually tell Claude to "activate the qmd-claude-history skill" before asking about past work.
 
 ## Project Structure
 

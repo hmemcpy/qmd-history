@@ -473,6 +473,154 @@ PLIST_EOF
 launchctl load "${HOME}/Library/LaunchAgents/com.user.qmd-claude-history.plist" 2>/dev/null || true
 info "Installed and loaded LaunchAgent (runs every 30 min)"
 
+# Update CLAUDE.md with skill activation directive
+echo ""
+echo "════════════════════════════════════════════════════════════"
+echo "  Step 4: CLAUDE.md Configuration (Optional)"
+echo "════════════════════════════════════════════════════════════"
+echo ""
+echo "To enable automatic skill activation, the installer can add a"
+echo "directive to your global CLAUDE.md file that tells Claude to"
+echo "automatically use the qmd-claude-history skill when you ask"
+echo "about past work."
+echo ""
+echo "This will be added to: ${HOME}/.claude/CLAUDE.md"
+echo ""
+echo "┌─────────────────────────────────────────────────────────────┐"
+echo "│  PREVIEW OF TEXT TO BE ADDED:                               │"
+echo "└─────────────────────────────────────────────────────────────┘"
+echo ""
+cat << 'PREVIEW'
+## Memory & Context Retrieval
+
+When the user asks about past work, previous conversations, or anything that might be in conversation history, **activate the qmd-claude-history skill** and search QMD first before answering.
+
+### When to Search History
+
+Activate qmd-claude-history skill when user asks:
+- "What did we work on last week?"
+- "How did I implement X?"
+- "Remind me about the Y project"
+- "What was our approach to Z?"
+- "Did we discuss...?"
+- Any question referencing past work or conversations
+
+### Quick Reference
+
+```bash
+# Search current project's conversation history
+qmd search "your query" --collection claude-<project>-conversations
+
+# Example for toolkata project
+qmd search "sandbox implementation" --collection claude-toolkata-conversations
+```
+
+**Note:** Full documentation is in the qmd-claude-history skill
+PREVIEW
+echo ""
+echo "┌─────────────────────────────────────────────────────────────┐"
+echo "│  END OF PREVIEW                                             │"
+echo "└─────────────────────────────────────────────────────────────┘"
+echo ""
+echo "Options:"
+echo "  [Y] Yes - Add the directive to CLAUDE.md (recommended)"
+echo "  [N] No  - Skip this step (you'll need to manually activate the skill)"
+echo "  [V] View - See the full text that will be added"
+echo ""
+read -p "Add skill activation directive to CLAUDE.md? (Y/n/v): " -n 1 -r
+echo
+
+# Handle view option
+while [[ $REPLY =~ ^[Vv]$ ]]; do
+    echo ""
+    echo "════════════════════════════════════════════════════════════"
+    echo "  FULL TEXT TO BE ADDED TO CLAUDE.md"
+    echo "════════════════════════════════════════════════════════════"
+    echo ""
+    cat << 'FULLTEXT'
+
+## Memory & Context Retrieval
+
+When the user asks about past work, previous conversations, or anything that might be in conversation history, **activate the qmd-claude-history skill** and search QMD first before answering.
+
+### When to Search History
+
+Activate qmd-claude-history skill when user asks:
+- "What did we work on last week?"
+- "How did I implement X?"
+- "Remind me about the Y project"
+- "What was our approach to Z?"
+- "Did we discuss...?"
+- Any question referencing past work or conversations
+
+### Quick Reference
+
+```bash
+# Search current project's conversation history
+qmd search "your query" --collection claude-<project>-conversations
+
+# Example for toolkata project
+qmd search "sandbox implementation" --collection claude-toolkata-conversations
+```
+
+**Note:** Full documentation is in the qmd-claude-history skill (`~/.claude/skills/qmd-claude-history/SKILL.md`)
+
+FULLTEXT
+    echo ""
+    read -p "Add this to CLAUDE.md? (Y/n): " -n 1 -r
+    echo
+done
+
+if [[ $REPLY =~ ^[Nn]$ ]]; then
+    warn "Skipping CLAUDE.md update"
+    warn "Note: You'll need to manually activate the qmd-claude-history skill"
+    warn "       when asking about past work, or add these instructions yourself."
+else
+    CLAUDE_MD="${HOME}/.claude/CLAUDE.md"
+    
+    # Backup existing CLAUDE.md if it exists
+    if [[ -f "$CLAUDE_MD" ]]; then
+        cp "$CLAUDE_MD" "${CLAUDE_MD}.backup.$(date +%Y%m%d%H%M%S)"
+        info "Backed up existing CLAUDE.md"
+    fi
+    
+    # Check if qmd-claude-history section already exists
+    if [[ -f "$CLAUDE_MD" ]] && grep -q "qmd-claude-history" "$CLAUDE_MD" 2>/dev/null; then
+        warn "CLAUDE.md already has qmd-claude-history section, skipping"
+    else
+        cat >> "$CLAUDE_MD" << 'CLAUDE_EOF'
+
+## Memory & Context Retrieval
+
+When the user asks about past work, previous conversations, or anything that might be in conversation history, **activate the qmd-claude-history skill** and search QMD first before answering.
+
+### When to Search History
+
+Activate qmd-claude-history skill when user asks:
+- "What did we work on last week?"
+- "How did I implement X?"
+- "Remind me about the Y project"
+- "What was our approach to Z?"
+- "Did we discuss...?"
+- Any question referencing past work or conversations
+
+### Quick Reference
+
+```bash
+# Search current project's conversation history
+qmd search "your query" --collection claude-<project>-conversations
+
+# Example for toolkata project
+qmd search "sandbox implementation" --collection claude-toolkata-conversations
+```
+
+**Note:** Full documentation is in the qmd-claude-history skill (`~/.claude/skills/qmd-claude-history/SKILL.md`)
+
+CLAUDE_EOF
+        info "Updated CLAUDE.md with skill activation directive"
+    fi
+fi
+
 # Convert existing history
 echo ""
 echo "Converting existing Claude history..."
